@@ -931,6 +931,7 @@ p2p message `tap_rfq` is sent with the following structure:
 2. data:
      * [`32*byte`:`rfq_id`]
      * [`32*byte`:`asset_id`]
+     * [`uint8`:`swap_type`]
      * [`BigSize`:`asset_amt`]
      * [`BigSize`:`suggested_rate_tick`]
 
@@ -939,7 +940,10 @@ where:
 * `rfq_id` is a randomly generate 32-byte value to uniquely identify this RFQ
   request
 * `asset_id` is the asset ID of the asset the receiver intends to receive
-* `asset_amt` is the amount of units of said asset
+* `swap_type` is the type of swap the message sender is requesting. When the
+  `swap_type` is `1`, the sender is requesting a swap of their Tap asset for
+  BTC. When the `swap_type` is `2`, the sender is requesting a swap of their
+  BTC for the subject Tap asset.
 * `suggested_rate_tick` is the internal unit used for asset conversions. A tick
   is 1/10000th of a currency unit. It gives us up to 4 decimal places of
   precision (0.0001 or 0.01% or 1 bps). As an example, if the BTC/USD rate was
@@ -965,6 +969,9 @@ The sender:
 
   - MUST set `asset_id` to the ID of an asset contained in the backing channel.
 
+  - MUST set `swap_type` to either `1` or `2` to indicate the direction of the
+    swap.
+
   - SHOULD specify reasonable values for `suggested_rate_tick` 
 
 The recipient:
@@ -976,6 +983,9 @@ The recipient:
 
   - MUST send an `tap_rfq_reject` message if the requested `asset_amt` is
     greater than the settled remote balance of that asset
+
+  - SHOULD take the value of `swap_type` into account when deciding whether to
+    accept or reject the quote
 
   - SHOULD take the `suggested_rate_tick` values into account when deciding
     whether to accept or reject the quote
