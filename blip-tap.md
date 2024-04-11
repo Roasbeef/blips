@@ -924,13 +924,14 @@ accept if favorable
 
 ##### Request For Quote (`tap_rfq`)
 
-When a receiver wishes to receive `N` units of TAP asset ID `asset_id`, a new
+When a receiver wishes to receive `N` units of TAP asset ID `in_asset_id`, a new
 p2p message `tap_rfq` is sent with the following structure:
 
 1. type: ?? (`tap_rfq`)
 2. data:
      * [`32*byte`:`rfq_id`]
-     * [`32*byte`:`asset_id`]
+     * [`32*byte`:`in_asset_id`]
+     * [`32*byte`:`out_asset_id`]
      * [`BigSize`:`asset_amt`]
      * [`BigSize`:`suggested_rate_tick`]
 
@@ -938,7 +939,11 @@ where:
 
 * `rfq_id` is a randomly generate 32-byte value to uniquely identify this RFQ
   request
-* `asset_id` is the asset ID of the asset the receiver intends to receive
+* `in_asset_id` specifies the asset ID that the requesting peer wishes to
+  receive. If this field is not provided, it implies that the receiver will only
+  accept BTC.
+* `out_asset_id` is the ID of the asset the requesting peer intends to send. If
+  this field is not provided, it implies that the receiver will send BTC.
 * `asset_amt` is the amount of units of said asset
 * `suggested_rate_tick` is the internal unit used for asset conversions. A tick
   is 1/10000th of a currency unit. It gives us up to 4 decimal places of
@@ -963,7 +968,13 @@ The sender:
       a simple counter system from a starting value can be used, with the nonce
       offer incrementing by one each time.
 
-  - MUST set `asset_id` to the ID of an asset contained in the backing channel.
+  - MUST specify at least one of `in_asset_id` or `out_asset_id`.
+
+  - MUST ensure that, when specified, `in_asset_id` is the ID of an asset
+    contained in the backing channel.
+
+  - MUST ensure that, when specified, `out_asset_id` is the ID of an asset
+    contained in the backing channel.
 
   - SHOULD specify reasonable values for `suggested_rate_tick` 
 
@@ -971,8 +982,11 @@ The recipient:
 
   - SHOULD send a `tap_rfq_reject` message if `rfq_id` has been used before
 
-  - MUST send an `tap_rfq_reject` message if `asset_id` is not committed to in
-    the open channel
+  - MUST send an `tap_rfq_reject` message if `in_asset_id` is specified and is
+    not committed to in the open channel
+
+  - MUST send an `tap_rfq_reject` message if `out_asset_id` is specified and is
+    not committed to in the open channel
 
   - MUST send an `tap_rfq_reject` message if the requested `asset_amt` is
     greater than the settled remote balance of that asset
@@ -988,7 +1002,7 @@ if it's able to accommodate the quote or not.
 #### Accepting Quotes  (`tap_rfq_accept`) 
 
 If it can, then it should send `tap_rfq_accept` that returns the quote amount
-the edge node is willing to observe to move `N` units of asset `asset_id`:
+the edge node is willing to observe:
 
 1. type: ?? (`tap_req_accept`)
 2. data:
@@ -1042,7 +1056,8 @@ The recipient:
 In the event that an edge node is unable to satisfy a quote request, then they
 should send `tap_rfq_reject`, identifying the rejected quote ID. A quote might
 be rejected if the channel cannot accommodate the proposed volume, or if the
-edge node is unwilling to carry any HTLCs for that `asset_id`.
+edge node is unwilling to carry any HTLCs for the asset specified by asset ID
+field `out_asset_id`.
 
 1. type: ?? (`tap_req_accept`)
 2. data:
@@ -1096,8 +1111,8 @@ receiving node:
 
 where:
 
-  * `amt_asset_incoming` is the HTLC value of the `asset_id` quote accepted in
-    the earlier RFQ round
+  * `amt_asset_incoming` is the HTLC value of the incoming asset, as determined
+    during the previous RFQ phase.
 
   * `msat_multiplier` is a factor used to scale from `BTC/asset` to
     `msat/asset_id`, this value is constant within the protocol and is derived
