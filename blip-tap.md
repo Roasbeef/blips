@@ -961,7 +961,9 @@ where:
   is `1`.
 
 * `rfq_id` is a randomly generated 32-byte value to uniquely identify this RFQ
-  request.
+  request. This must be drawn randomly but in a way that the derived SCID lies
+  within an acceptable range. See [RFQ ID to SCID
+  derivation](#rfq-id-to-scid-derivation).
 
 * `transfer_type` (`uint8`): Specifies the type of transaction that will take
   place if the quote request results in an accepted agreement. It is set to:
@@ -1024,16 +1026,14 @@ where:
 Note that all numeric types, except for `BigSize` types, are encoded in
 big-endian byte order.
 
-Given a valid `rfq_id`, the RFQ specific SCID `tap_rfq_scid` is defined by
-taking the last `8` bytes of the `rfq_id` and interpreting them as a 64-bit
-integer.
-
 ###### Requirements
 
 The sender:
 
 - MUST ensure that the `tap_rfq_scid` mapping of an `rfq_id` doesn't collide
-  with the `scid` of any active channels.
+  with the `scid` of any active channels and that the `scid` lies within the
+  acceptable range as defined in [RFQ ID to SCID
+  derivation](#rfq-id-to-scid-derivation).
 
 - MUST ensure that an `rfq_id` is never repeated for the lifetime of a
   connection.
@@ -1200,6 +1200,20 @@ The sender:
 The recipient:
 
 - MUST not attempt to send/receive using the rejected `rfq_id`.
+
+#### RFQ ID to SCID derivation
+
+Given a valid `rfq_id`, the RFQ specific SCID `tap_rfq_scid` is defined by
+taking the last `8` bytes of the `rfq_id` and interpreting them as a 64-bit
+integer.
+
+When that 64-bit integer is converted into the
+[BOLT-07](https://github.com/lightning/bolts/blob/247e83d528a2a380e533e89f31918d7b0ce6a0c1/07-routing-gossip.md?plain=1#L37)
+style `short_channel_id` (block height, transaction index and output index),
+then the block height must be between 16,000,000 (inclusive) and 16_250_000
+(exclusive).
+If the derived short channel ID does not fall within that range, a new random
+RFQ ID should be drawn until one is found that satisfies the condition.
 
 #### Fixed-Point Number Type
 
